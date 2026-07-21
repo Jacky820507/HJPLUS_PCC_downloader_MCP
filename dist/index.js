@@ -19,12 +19,21 @@ class PccDownloader {
     browser = null;
     url = "https://pcic.pcc.gov.tw/pwc-web/service/tec0304";
     async init() {
-        this.browser = await chromium.launch({
+        const launchOptions = {
             headless: true,
             // 抑制 Playwright 的 stderr 輸出，避免污染 MCP stdio 通道
             // 某些 agent host 會將 stderr 視為錯誤訊號
             args: ["--disable-logging", "--log-level=3"],
-        });
+        };
+        try {
+            this.browser = await chromium.launch(launchOptions);
+        }
+        catch (playwrightChromiumError) {
+            // Playwright 綁定的 Chromium 下載常被防火牆擋（storage.googleapis.com /
+            // cdn.playwright.dev），退而使用系統已安裝的 Chrome。
+            console.error("Playwright bundled Chromium unavailable, falling back to system Chrome...", playwrightChromiumError);
+            this.browser = await chromium.launch({ ...launchOptions, channel: "chrome" });
+        }
     }
     async close() {
         if (this.browser)
@@ -281,8 +290,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         keyword: { type: "string", description: "關鍵字或規範編號（如 09910）。可留空。" },
                         chapter: {
                             type: "string",
-                            description: "章節代碼（00-16, L, E）。留空表示全部章節。",
-                            enum: ["", "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "L", "E"]
+                            description: "章節代碼（00-16, L, E）。輸入 'all' 表示全部章節。",
+                            enum: ["all", "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "L", "E"]
                         },
                     },
                 },

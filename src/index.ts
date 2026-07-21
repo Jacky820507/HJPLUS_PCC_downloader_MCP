@@ -27,12 +27,20 @@ class PccDownloader {
   private url = "https://pcic.pcc.gov.tw/pwc-web/service/tec0304";
 
   async init() {
-    this.browser = await chromium.launch({
+    const launchOptions = {
       headless: true,
       // 抑制 Playwright 的 stderr 輸出，避免污染 MCP stdio 通道
       // 某些 agent host 會將 stderr 視為錯誤訊號
       args: ["--disable-logging", "--log-level=3"],
-    });
+    };
+    try {
+      this.browser = await chromium.launch(launchOptions);
+    } catch (playwrightChromiumError) {
+      // Playwright 綁定的 Chromium 下載常被防火牆擋（storage.googleapis.com /
+      // cdn.playwright.dev），退而使用系統已安裝的 Chrome。
+      console.error("Playwright bundled Chromium unavailable, falling back to system Chrome...", playwrightChromiumError);
+      this.browser = await chromium.launch({ ...launchOptions, channel: "chrome" });
+    }
   }
 
   async close() {
